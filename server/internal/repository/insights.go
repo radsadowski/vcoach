@@ -70,6 +70,21 @@ func (r *Repository) LongestRunKm(ctx context.Context, athleteID uuid.UUID, sinc
 	return km, nil
 }
 
+// BestRunPaceSecPerKm returns the fastest pace (seconds per km) among runs
+// of at least 1 km since the given date.
+func (r *Repository) BestRunPaceSecPerKm(ctx context.Context, athleteID uuid.UUID, since entities.Date) (*int, error) {
+	const q = `
+		SELECT MIN(duration_sec / (distance_m / 1000.0))::int FROM activities
+		WHERE athlete_id = $1 AND sport_family = 'run'
+		  AND (start_time AT TIME ZONE 'UTC')::date >= $2 AND distance_m >= 1000`
+
+	var pace *int
+	if err := r.db.GetContext(ctx, &pace, q, athleteID, since); err != nil {
+		return nil, fmt.Errorf("best run pace: %w", err)
+	}
+	return pace, nil
+}
+
 // LatestWeight returns the most recent weight from daily health.
 func (r *Repository) LatestWeight(ctx context.Context, athleteID uuid.UUID) (*float64, error) {
 	const q = `

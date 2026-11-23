@@ -70,6 +70,10 @@ export async function deleteGoal(id: string): Promise<void> {
   }
 }
 
+export function getGoalProgress(id: string): Promise<GoalProgress> {
+  return apiFetch<GoalProgress>(`/api/goals/${id}/progress`);
+}
+
 export function listPlans(): Promise<Plan[]> {
   return apiFetch<Plan[]>("/api/plans");
 }

@@ -3,6 +3,7 @@ package goals_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -10,8 +11,10 @@ import (
 	"github.com/radosny/vcoach/server/internal/entities"
 	domainerrors "github.com/radosny/vcoach/server/internal/errors"
 	"github.com/radosny/vcoach/server/internal/repository"
+	climbingsvc "github.com/radosny/vcoach/server/internal/service/climbing"
 	"github.com/radosny/vcoach/server/internal/service/goals"
 	"github.com/radosny/vcoach/server/internal/testing/database"
+	climbbuilder "github.com/radosny/vcoach/server/internal/testing/entities/climbing"
 	goalbuilder "github.com/radosny/vcoach/server/internal/testing/entities/goal"
 )
 
@@ -189,6 +192,101 @@ func TestService(t *testing.T) {
 		r.NoError(err)
 		var notFoundErr *domainerrors.NotFoundError
 		_, err = svc.GetGoal(ctx, athleteID, goal.ID)
+		r.ErrorAs(err, &notFoundErr)
+	})
+}
+
+func TestGetProgress(t *testing.T) {
+	t.Parallel()
+	r := require.New(t)
+
+	// given
+	db := database.SetupDB(t)
+	repo := repository.New(db)
+	goalSvc := goals.New(repo)
+	climbingSvc := climbingsvc.New(repo)
+	ctx := context.Background()
+	athleteID, err := repo.GetOrCreateDefaultAthlete(ctx)
+	r.NoError(err)
+
+	// a 10 km run in 50 minutes, three days ago
+	distanceM := 10000.0
+	_, err = repo.UpsertActivity(ctx, entities.Activity{
+		AthleteID:   athleteID,
+		ExternalID:  "progress-run-1",
+		Sport:       "running",
+		SportFamily: "run",
+		StartTime:   time.Now().UTC().AddDate(0, 0, -3),
+		DurationSec: 3000,
+		DistanceM:   &distanceM,
+		Raw:         []byte(`{}`),
+	})
+	r.NoError(err)
+
+	t.Run("boulder goal progress ranks sessions against the target", func(t *testing.T) {
+		r := require.New(t)
+
+		// given: sessions 6A+ and 6B sent this month
+		_, err := climbingSvc.Create(ctx, athleteID, climbbuilder.NewInput(
+			climbbuilder.WithSent("6A+"), climbbuilder.WithAttempted("6B"), climbbuilder.WithAttempts(10)))
+		r.NoError(err)
+		_, err = climbingSvc.Create(ctx, athleteID, climbbuilder.NewInput(
+			climbbuilder.WithSent("6B"), climbbuilder.WithAttempted("6B+"), climbbuilder.WithAttempts(15)))
+		r.NoError(err)
+
+		goal, err := goalSvc.CreateGoal(ctx, athleteID, goalbuilder.NewInput(goalbuilder.WithBoulderGrade("7C")))
+		r.NoError(err)
+
+		// when
+		progress, err := goalSvc.GetProgress(ctx, athleteID, goal.ID)
+
+		// then
+		r.NoError(err)
+		r.Equal(entities.GoalActivityBoulder, progress.ActivityType)
+		r.Equal("7C", progress.TargetValue)
+		r.NotNil(progress.Climb)
+		r.Equal("6B", progress.Climb.HardestSent)
+		r.Equal("boulder", progress.Climb.Discipline)
+		r.Equal(2, progress.Climb.Sessions30d)
+		r.Equal(25, progress.Climb.Attempts30d)
+
+		sentRank, err := entities.BoulderGradeRank("6B")
+		r.NoError(err)
+		targetRank, err := entities.BoulderGradeRank("7C")
+		r.NoError(err)
+		r.Equal(sentRank, progress.Climb.HardestSentRank)
+		r.Equal(targetRank, progress.Climb.TargetRank)
+		r.Equal(targetRank-sentRank, progress.Climb.RankGap)
+	})
+
+	t.Run("run goal progress aggregates volume, longest run and pace", func(t *testing.T) {
+		r := require.New(t)
+
+		// given
+		goal, err := goalSvc.CreateGoal(ctx, athleteID, goalbuilder.NewInput(goalbuilder.WithRunDistance("21.1")))
+		r.NoError(err)
+
+		// when
+		progress, err := goalSvc.GetProgress(ctx, athleteID, goal.ID)
+
+		// then
+		r.NoError(err)
+		r.NotNil(progress.Run)
+		r.NotNil(progress.Run.LongestRunKm)
+		r.InDelta(10.0, *progress.Run.LongestRunKm, 0.01)
+		r.NotNil(progress.Run.BestPaceSecPerKm)
+		r.InDelta(300.0, float64(*progress.Run.BestPaceSecPerKm), 1.0)
+		r.NotEmpty(progress.Run.WeeklyVolumes)
+	})
+
+	t.Run("unknown goal returns NotFoundError", func(t *testing.T) {
+		r := require.New(t)
+
+		// when
+		_, err := goalSvc.GetProgress(ctx, athleteID, randomUUID())
+
+		// then
+		var notFoundErr *domainerrors.NotFoundError
 		r.ErrorAs(err, &notFoundErr)
 	})
 }

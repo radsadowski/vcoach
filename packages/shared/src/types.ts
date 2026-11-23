@@ -233,3 +233,27 @@ export type SyncState = {
 export type SyncStatus = {
   sources: SyncState[];
 };
+
+export type RunProgress = {
+  longestRunKm?: number;
+  bestPaceSecPerKm?: number;
+  weeklyVolumes: { week: string; distanceKm: number; sessionCount: number }[];
+};
+
+export type ClimbProgress = {
+  discipline: string;
+  hardestSent: string;
+  hardestSentRank: number;
+  targetRank: number;
+  rankGap: number;
+  attempts30d: number;
+  sessions30d: number;
+};
+
+export type GoalProgress = {
+  goalId: string;
+  activityType: GoalActivityType;
+  targetValue: string;
+  run?: RunProgress;
+  climb?: ClimbProgress;
+};

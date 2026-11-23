@@ -23,8 +23,24 @@ func Routes(r chi.Router, svc *goalsvc.Service) {
 	h := &handler{svc: svc}
 	r.Get("/goals", h.list)
 	r.Post("/goals", h.create)
+	r.Get("/goals/{id}/progress", h.progress)
 	r.Patch("/goals/{id}", h.update)
 	r.Delete("/goals/{id}", h.remove)
+}
+
+func (h *handler) progress(w http.ResponseWriter, r *http.Request) {
+	goalID, err := uuid.Parse(chi.URLParam(r, "id"))
+	if err != nil {
+		httpx.WriteError(w, domainerrors.NewValidationError("invalid goal id %q", chi.URLParam(r, "id")))
+		return
+	}
+
+	progress, err := h.svc.GetProgress(r.Context(), httpx.AthleteID(r.Context()), goalID)
+	if err != nil {
+		httpx.WriteError(w, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, progress)
 }
 
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
