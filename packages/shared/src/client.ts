@@ -8,6 +8,7 @@ import type {
   CreateGoalInput,
   CreatePlanInput,
   Goal,
+  GoalProgress,
   HealthStatus,
   Plan,
   PlanWithSessions,
