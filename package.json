@@ -1,0 +1,8 @@
+{
+  "name": "vcoach",
+  "private": true,
+  "workspaces": [
+    "web",
+    "packages/shared"
+  ]
+}

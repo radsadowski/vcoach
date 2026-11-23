@@ -1,0 +1,20 @@
+DROP TABLE chat_messages;
+DROP TABLE chat_sessions;
+DROP TABLE sync_state;
+DROP TABLE daily_health;
+DROP TABLE activities;
+DROP TABLE climbing_sessions;
+DROP TABLE plan_sessions;
+DROP TYPE session_status;
+DROP TABLE plan_weeks;
+DROP TABLE plans;
+DROP TYPE plan_status;
+DROP TABLE goals;
+DROP TYPE goal_status;
+DROP TYPE goal_activity_type;
+ALTER TABLE athletes
+    DROP COLUMN birth_year,
+    DROP COLUMN sex,
+    DROP COLUMN weight_kg,
+    DROP COLUMN running_experience,
+    DROP COLUMN climbing_experience;
