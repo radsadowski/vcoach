@@ -29,6 +29,16 @@ func (d Date) String() string {
 	return d.Time().UTC().Format(dateLayout)
 }
 
+// AddDays returns the date shifted by the given number of days.
+func (d Date) AddDays(days int) Date {
+	return Date(d.Time().AddDate(0, 0, days))
+}
+
+// After reports whether d is strictly after other.
+func (d Date) After(other Date) bool {
+	return d.Time().After(other.Time())
+}
+
 // MarshalJSON encodes the date as "YYYY-MM-DD".
 func (d Date) MarshalJSON() ([]byte, error) {
 	if d.IsZero() {

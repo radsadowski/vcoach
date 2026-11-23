@@ -17,11 +17,13 @@ import (
 	"github.com/radosny/vcoach/server/internal/server/goals"
 	"github.com/radosny/vcoach/server/internal/server/plans"
 	"github.com/radosny/vcoach/server/internal/server/profile"
+	syncapi "github.com/radosny/vcoach/server/internal/server/sync"
 	chatsvc "github.com/radosny/vcoach/server/internal/service/chat"
 	climbingsvc "github.com/radosny/vcoach/server/internal/service/climbing"
 	goalsvc "github.com/radosny/vcoach/server/internal/service/goals"
 	plansvc "github.com/radosny/vcoach/server/internal/service/plans"
 	profilesvc "github.com/radosny/vcoach/server/internal/service/profile"
+	syncsvc "github.com/radosny/vcoach/server/internal/service/sync"
 )
 
 // Deps carries the router's collaborators.
@@ -33,6 +35,7 @@ type Deps struct {
 	Plans    *plansvc.Service
 	Climbing *climbingsvc.Service
 	Chat     *chatsvc.Service
+	Sync     *syncsvc.Service
 }
 
 // AthleteStore resolves the current athlete. Implemented by the repository;
@@ -59,6 +62,7 @@ func NewRouter(deps Deps) http.Handler {
 		plans.Routes(api, deps.Plans)
 		climbing.Routes(api, deps.Climbing)
 		chat.Routes(api, deps.Chat)
+		syncapi.Routes(api, deps.Sync)
 	})
 
 	return r

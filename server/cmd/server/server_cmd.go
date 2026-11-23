@@ -21,9 +21,11 @@ import (
 	"github.com/radosny/vcoach/server/internal/server"
 	chatsvc "github.com/radosny/vcoach/server/internal/service/chat"
 	climbingsvc "github.com/radosny/vcoach/server/internal/service/climbing"
+	"github.com/radosny/vcoach/server/internal/service/garmin"
 	goalsvc "github.com/radosny/vcoach/server/internal/service/goals"
 	plansvc "github.com/radosny/vcoach/server/internal/service/plans"
 	profilesvc "github.com/radosny/vcoach/server/internal/service/profile"
+	syncsvc "github.com/radosny/vcoach/server/internal/service/sync"
 )
 
 func run(ctx context.Context) error {
@@ -48,14 +50,26 @@ func run(ctx context.Context) error {
 	db.SetConnMaxLifetime(time.Hour)
 
 	repo := repository.New(db)
+	garminClient := garmin.NewHTTPClient(cfg.GarminAPIKey)
+	syncService := syncsvc.New(repo, garminClient, log)
+
+	// Resolve the default athlete up front so the scheduler has an ID; this
+	// also creates the athlete row on first boot.
+	athleteID, err := repo.GetOrCreateDefaultAthlete(ctx)
+	if err != nil {
+		return fmt.Errorf("resolve default athlete: %w", err)
+	}
+	go syncService.Run(ctx, athleteID, cfg.SyncInterval)
+
 	handler := server.NewRouter(server.Deps{
 		Log:      log,
 		Athletes: repo,
-		Profile:  profilesvc.New(repo),
+		Profile:  profilesvc.New(repo, log),
 		Goals:    goalsvc.New(repo),
 		Plans:    plansvc.New(repo),
 		Climbing: climbingsvc.New(repo),
 		Chat:     chatsvc.New(repo),
+		Sync:     syncService,
 	})
 
 	httpSrv := &http.Server{

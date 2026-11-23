@@ -25,7 +25,7 @@ func Routes(r chi.Router, svc *profilesvc.Service) {
 }
 
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
-	athlete, err := h.svc.Get(r.Context(), httpx.AthleteID(r.Context()))
+	athlete, err := h.svc.GetWithDerived(r.Context(), httpx.AthleteID(r.Context()))
 	if err != nil {
 		httpx.WriteError(w, err)
 		return

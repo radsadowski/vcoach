@@ -35,7 +35,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	handler := server.NewRouter(server.Deps{
 		Log:      log,
 		Athletes: repo,
-		Profile:  profilesvc.New(repo),
+		Profile:  profilesvc.New(repo, log),
 		Goals:    goalsvc.New(repo),
 		Plans:    plansvc.New(repo),
 		Climbing: climbingsvc.New(repo),

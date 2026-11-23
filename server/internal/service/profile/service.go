@@ -6,6 +6,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,14 +16,20 @@ import (
 	"github.com/radosny/vcoach/server/internal/repository"
 )
 
+// nowUTC is the clock used for derived-metric windows.
+func nowUTC() time.Time {
+	return time.Now().UTC()
+}
+
 // Service holds the profile business logic dependencies.
 type Service struct {
 	repo *repository.Repository
+	log  *slog.Logger
 }
 
 // New builds a profile Service.
-func New(repo *repository.Repository) *Service {
-	return &Service{repo: repo}
+func New(repo *repository.Repository, log *slog.Logger) *Service {
+	return &Service{repo: repo, log: log}
 }
 
 // Get returns the athlete profile basics.

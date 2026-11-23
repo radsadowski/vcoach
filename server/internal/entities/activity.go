@@ -28,7 +28,7 @@ type Activity struct {
 type DailyHealth struct {
 	ID          uuid.UUID `db:"id" json:"id"`
 	AthleteID   uuid.UUID `db:"athlete_id" json:"athleteId"`
-	Day         time.Time `db:"day" json:"day"`
+	Day         Date      `db:"day" json:"day"`
 	SleepScore  *int      `db:"sleep_score" json:"sleepScore,omitempty"`
 	SleepHours  *float64  `db:"sleep_hours" json:"sleepHours,omitempty"`
 	HRVMS       *int      `db:"hrv_ms" json:"hrvMs,omitempty"`

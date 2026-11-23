@@ -181,3 +181,55 @@ export type ChatMessage = {
   toolCalls: unknown | null;
   createdAt: string;
 };
+
+export type HeartRateInfo = {
+  maxHeartRate: number;
+  restingHr: number;
+  zone1Floor: number;
+  zone2Floor: number;
+  zone3Floor: number;
+  zone4Floor: number;
+};
+
+export type WeeklyVolume = {
+  week: string;
+  distanceKm: number;
+  sessionCount: number;
+};
+
+export type WeightTrend = {
+  latestKg: number;
+  daysAgoKg: number;
+  changeKg: number;
+};
+
+export type DerivedProfile = {
+  heartRate?: HeartRateInfo;
+  vo2max?: number;
+  weeklyVolumes: WeeklyVolume[];
+  longestRunKm?: number;
+  weight?: WeightTrend;
+};
+
+export type AthleteWithDerived = Athlete & {
+  derived: DerivedProfile;
+};
+
+export type SyncResult = {
+  activitiesSynced: number;
+  healthDaysSynced: number;
+  errors?: string[];
+};
+
+export type SyncState = {
+  source: string;
+  athleteId: string;
+  lastSyncedAt: string | null;
+  cursor: string | null;
+  lastError: string | null;
+  lastErrorAt: string | null;
+};
+
+export type SyncStatus = {
+  sources: SyncState[];
+};

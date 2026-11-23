@@ -1,5 +1,6 @@
 import type {
   Athlete,
+  AthleteWithDerived,
   ChatMessage,
   ChatSession,
   ClimbingSession,
@@ -10,6 +11,8 @@ import type {
   HealthStatus,
   Plan,
   PlanWithSessions,
+  SyncResult,
+  SyncStatus,
   UpdateAthleteInput,
   UpdateClimbingSessionInput,
   UpdateGoalInput,
@@ -40,8 +43,8 @@ export function getHealth(): Promise<HealthStatus> {
   return apiFetch<HealthStatus>("/healthz");
 }
 
-export function getProfile(): Promise<Athlete> {
-  return apiFetch<Athlete>("/api/profile");
+export function getProfile(): Promise<AthleteWithDerived> {
+  return apiFetch<AthleteWithDerived>("/api/profile");
 }
 
 export function updateProfile(input: UpdateAthleteInput): Promise<Athlete> {
@@ -119,4 +122,12 @@ export function createChatSession(title?: string): Promise<ChatSession> {
 
 export function listChatMessages(sessionId: string): Promise<ChatMessage[]> {
   return apiFetch<ChatMessage[]>(`/api/chat-sessions/${sessionId}/messages`);
+}
+
+export function syncNow(): Promise<SyncResult> {
+  return apiFetch<SyncResult>("/api/sync", { method: "POST" });
+}
+
+export function getSyncStatus(): Promise<SyncStatus> {
+  return apiFetch<SyncStatus>("/api/sync/status");
 }
