@@ -21,6 +21,7 @@ import (
 	"github.com/radosny/vcoach/server/internal/server"
 	chatsvc "github.com/radosny/vcoach/server/internal/service/chat"
 	climbingsvc "github.com/radosny/vcoach/server/internal/service/climbing"
+	"github.com/radosny/vcoach/server/internal/service/coach"
 	"github.com/radosny/vcoach/server/internal/service/garmin"
 	goalsvc "github.com/radosny/vcoach/server/internal/service/goals"
 	plansvc "github.com/radosny/vcoach/server/internal/service/plans"
@@ -61,15 +62,28 @@ func run(ctx context.Context) error {
 	}
 	go syncService.Run(ctx, athleteID, cfg.SyncInterval)
 
+	llm := coach.NewOpenAICompatibleClient(cfg.LLMBaseURL, cfg.LLMAPIKey, cfg.LLMModel)
+	profileService := profilesvc.New(repo, log)
+	coachService := coach.New(coach.Dependencies{
+		Repo:     repo,
+		Log:      log,
+		LLM:      llm,
+		Goals:    goalsvc.New(repo),
+		Plans:    plansvc.New(repo),
+		Climbing: climbingsvc.New(repo),
+		Profile:  profileService,
+	})
+
 	handler := server.NewRouter(server.Deps{
 		Log:      log,
 		Athletes: repo,
-		Profile:  profilesvc.New(repo, log),
+		Profile:  profileService,
 		Goals:    goalsvc.New(repo),
 		Plans:    plansvc.New(repo),
 		Climbing: climbingsvc.New(repo),
 		Chat:     chatsvc.New(repo),
 		Sync:     syncService,
+		Coach:    coachService,
 	})
 
 	httpSrv := &http.Server{

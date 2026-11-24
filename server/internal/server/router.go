@@ -20,6 +20,7 @@ import (
 	syncapi "github.com/radosny/vcoach/server/internal/server/sync"
 	chatsvc "github.com/radosny/vcoach/server/internal/service/chat"
 	climbingsvc "github.com/radosny/vcoach/server/internal/service/climbing"
+	coachsvc "github.com/radosny/vcoach/server/internal/service/coach"
 	goalsvc "github.com/radosny/vcoach/server/internal/service/goals"
 	plansvc "github.com/radosny/vcoach/server/internal/service/plans"
 	profilesvc "github.com/radosny/vcoach/server/internal/service/profile"
@@ -36,6 +37,7 @@ type Deps struct {
 	Climbing *climbingsvc.Service
 	Chat     *chatsvc.Service
 	Sync     *syncsvc.Service
+	Coach    *coachsvc.Service
 }
 
 // AthleteStore resolves the current athlete. Implemented by the repository;
@@ -61,7 +63,7 @@ func NewRouter(deps Deps) http.Handler {
 		goals.Routes(api, deps.Goals)
 		plans.Routes(api, deps.Plans)
 		climbing.Routes(api, deps.Climbing)
-		chat.Routes(api, deps.Chat)
+		chat.Routes(api, deps.Chat, deps.Coach)
 		syncapi.Routes(api, deps.Sync)
 	})
 
