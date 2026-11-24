@@ -63,9 +63,9 @@ echo "chat"
 SESSION_ID=$(curl -s -X POST $API/chat-sessions -H 'content-type: application/json' -d '{"title":"smoke"}' \
   | python3 -c 'import sys,json; print(json.load(sys.stdin)["id"])')
 check "chat session created" "36" "${#SESSION_ID}"
-check "user message persisted" "1" "$(curl -s -N -X POST $API/chat-sessions/$SESSION_ID/messages \
+check "user message persisted" "yes" "$(curl -s -N -X POST $API/chat-sessions/$SESSION_ID/messages \
   -H 'content-type: application/json' -d '{"content":"smoke hello"}' >/dev/null; \
-  curl -s $API/chat-sessions/$SESSION_ID/messages | python3 -c 'import sys,json; print(len(json.load(sys.stdin)))')"
+  curl -s $API/chat-sessions/$SESSION_ID/messages | python3 -c 'import sys,json; msgs=json.load(sys.stdin); print("yes" if len(msgs) >= 1 and msgs[0]["role"] == "user" else "no")')"
 
 echo "sync"
 check "sync status present" "200" "$(curl -s -o /dev/null -w '%{http_code}' $API/sync/status)"

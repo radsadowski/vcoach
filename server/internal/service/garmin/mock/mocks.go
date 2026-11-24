@@ -146,6 +146,21 @@ func (mr *MockClientMockRecorder) StressDaily(ctx, startDate, endDate any) *gomo
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "StressDaily", reflect.TypeOf((*MockClient)(nil).StressDaily), ctx, startDate, endDate)
 }
 
+// VO2MaxDaily mocks base method.
+func (m *MockClient) VO2MaxDaily(ctx context.Context, startDate, endDate string) ([]garmin.VO2MaxMeasurement, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "VO2MaxDaily", ctx, startDate, endDate)
+	ret0, _ := ret[0].([]garmin.VO2MaxMeasurement)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// VO2MaxDaily indicates an expected call of VO2MaxDaily.
+func (mr *MockClientMockRecorder) VO2MaxDaily(ctx, startDate, endDate any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "VO2MaxDaily", reflect.TypeOf((*MockClient)(nil).VO2MaxDaily), ctx, startDate, endDate)
+}
+
 // WeightRange mocks base method.
 func (m *MockClient) WeightRange(ctx context.Context, startDate, endDate string) ([]garmin.WeightMeasurement, error) {
 	m.ctrl.T.Helper()

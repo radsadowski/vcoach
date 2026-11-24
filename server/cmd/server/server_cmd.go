@@ -16,6 +16,7 @@ import (
 	"github.com/jmoiron/sqlx"
 
 	"github.com/radosny/vcoach/server/db/migrations"
+	_ "github.com/radosny/vcoach/server/docs"
 	"github.com/radosny/vcoach/server/internal/config"
 	"github.com/radosny/vcoach/server/internal/repository"
 	"github.com/radosny/vcoach/server/internal/server"

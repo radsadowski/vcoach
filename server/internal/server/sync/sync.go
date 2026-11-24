@@ -23,6 +23,13 @@ func Routes(r chi.Router, svc *syncsvc.Service) {
 	r.Get("/sync/status", h.status)
 }
 
+// syncNow godoc
+// @Summary      Trigger a Garmin sync
+// @Description  Pulls activities and daily health since the cursor (90-day backfill on first sync) and applies compliance matching. Returns per-run counts and any per-source errors.
+// @Tags         sync
+// @Produce      json
+// @Success      200 {object} sync.Result
+// @Router       /sync [post]
 func (h *handler) syncNow(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), 90*time.Second)
 	defer cancel()
@@ -35,6 +42,13 @@ func (h *handler) syncNow(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, result)
 }
 
+// status godoc
+// @Summary      Get sync status
+// @Description  Per-source sync state: last synced time, cursor and last error (e.g. an expired Garmin API key).
+// @Tags         sync
+// @Produce      json
+// @Success      200 {object} sync.SyncStatus
+// @Router       /sync/status [get]
 func (h *handler) status(w http.ResponseWriter, r *http.Request) {
 	status, err := h.svc.Status(r.Context(), httpx.AthleteID(r.Context()))
 	if err != nil {

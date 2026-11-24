@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Dev hot loop: postgres via compose, Go API, Vite dev server.
+# Dev hot loop: postgres via compose, Go API (air hot reload), Vite dev server.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
@@ -19,11 +19,11 @@ cleanup() {
 }
 trap cleanup EXIT INT TERM
 
-(cd server && go run ./cmd/server) &
+(cd server && exec air) &
 (cd web && exec npx vite) &
 
 echo
-echo "  api : http://localhost:${PORT}"
+echo "  api : http://localhost:${PORT} (hot reload via air)"
 echo "  web : http://localhost:5173"
 echo
 

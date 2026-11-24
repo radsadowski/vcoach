@@ -24,6 +24,14 @@ func Routes(r chi.Router, svc *profilesvc.Service) {
 	r.Put("/profile", h.update)
 }
 
+// get godoc
+// @Summary      Get the athlete profile
+// @Description  Manual basics plus metrics derived from synced Garmin data (HR zones, VO2max, weekly volumes, longest run, weight trend).
+// @Tags         profile
+// @Produce      json
+// @Success      200 {object} profile.AthleteWithDerived
+// @Failure      404 {object} httpx.ErrorResponse
+// @Router       /profile [get]
 func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	athlete, err := h.svc.GetWithDerived(r.Context(), httpx.AthleteID(r.Context()))
 	if err != nil {
@@ -33,6 +41,17 @@ func (h *handler) get(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, athlete)
 }
 
+// update godoc
+// @Summary      Update profile basics
+// @Description  Updates manual profile basics; nil fields are kept.
+// @Tags         profile
+// @Accept       json
+// @Produce      json
+// @Param        body body entities.UpdateAthleteInput true "Profile basics"
+// @Success      200 {object} profile.AthleteWithDerived
+// @Failure      400 {object} httpx.ErrorResponse
+// @Failure      404 {object} httpx.ErrorResponse
+// @Router       /profile [put]
 func (h *handler) update(w http.ResponseWriter, r *http.Request) {
 	var input entities.UpdateAthleteInput
 	if err := json.NewDecoder(r.Body).Decode(&input); err != nil {

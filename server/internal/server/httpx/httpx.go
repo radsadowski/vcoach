@@ -40,7 +40,12 @@ func WriteJSON(w http.ResponseWriter, status int, v any) {
 // WriteError maps an error to an HTTP error response.
 func WriteError(w http.ResponseWriter, err error) {
 	status, message := MapServiceError(err)
-	WriteJSON(w, status, map[string]string{"error": message})
+	WriteJSON(w, status, ErrorResponse{Error: message})
+}
+
+// ErrorResponse is the error envelope of every failing endpoint.
+type ErrorResponse struct {
+	Error string `json:"error" example:"validation failed"`
 }
 
 // MapServiceError converts domain errors into an HTTP status and a

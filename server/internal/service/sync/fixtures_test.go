@@ -53,7 +53,11 @@ func activitiesFixture() []garmin.Activity {
 func healthFixture() map[string]any {
 	return map[string]any{
 		"summaries": []garmin.DailySummary{
-			{CalendarDate: "2026-11-20", RestingHeartRate: 52, Steps: 9800},
+			{
+				CalendarDate: "2026-11-20",
+				HeartRate:    garmin.DailyHeartRate{RestingValue: 52},
+				Movement:     garmin.DailyMovement{Steps: garmin.DailySteps{Value: 9800}},
+			},
 		},
 		"stress": []garmin.DailyStress{
 			{CalendarDate: "2026-11-20", AverageStressLevel: 28},
@@ -69,6 +73,9 @@ func healthFixture() map[string]any {
 		},
 		"weights": []garmin.WeightMeasurement{
 			{Date: "2026-11-20", Weight: 72.4},
+		},
+		"vo2max": []garmin.VO2MaxMeasurement{
+			{Generic: garmin.VO2MaxEntry{CalendarDate: "2026-11-20", VO2MaxPreciseValue: 53.2}},
 		},
 	}
 }

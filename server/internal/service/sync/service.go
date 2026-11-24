@@ -1,6 +1,7 @@
 // Package sync pulls the athlete's data from Garmin into the local database:
 // activities, daily health and heart-rate zones. Syncs are idempotent and
-// cursor-based; failures are recorded per source and degrade gracefully.
+// re-fetch a full backfill window every run, so a previously partial sync
+// self-heals; failures are recorded per source and degrade gracefully.
 package sync
 
 import (
@@ -18,12 +19,18 @@ import (
 	"github.com/radosny/vcoach/server/internal/service/garmin"
 )
 
-// BackfillDays is how far back the first sync reaches.
+// BackfillDays is how far back every sync reaches. Garmin caps the range of
+// some daily-health endpoints, so windows are chunked per endpoint below.
 const BackfillDays = 90
 
-// OverlapDays re-fetches a small window behind the cursor so late-arriving
-// data and edits on Garmin's side are picked up.
-const OverlapDays = 2
+// Endpoint range caps, discovered against the live Personal API: sleep and
+// body battery reject ranges over 31 days, stress over 14 days. The other
+// daily-health endpoints accept the full backfill window in one request.
+const (
+	sleepRangeDays   = 30
+	batteryRangeDays = 30
+	stressRangeDays  = 14
+)
 
 // Result summarizes one sync run.
 type Result struct {
@@ -86,22 +93,32 @@ func (s *Service) SyncNow(ctx context.Context, athleteID uuid.UUID) (Result, err
 	return result, nil
 }
 
-// syncActivities pulls activities since the cursor (minus overlap) and upserts
-// them. The cursor only advances after a successful persist.
-func (s *Service) syncActivities(ctx context.Context, athleteID uuid.UUID) (int, error) {
+// backfillWindow returns the inclusive date range every sync fetches.
+func backfillWindow() (entities.Date, entities.Date) {
 	today := entities.Date(time.Now().UTC())
-	state, err := s.repo.GetSyncState(ctx, athleteID, entities.SyncSourceGarminActivities)
-	if err != nil {
-		return 0, fmt.Errorf("read activities sync state: %w", err)
-	}
+	return today.AddDays(-(BackfillDays - 1)), today
+}
 
-	from := today.AddDays(-(BackfillDays - 1))
-	if state != nil && state.Cursor != nil {
-		cursor := entities.Date(*state.Cursor)
-		if overlapStart := cursor.AddDays(-OverlapDays); overlapStart.After(from) {
-			from = overlapStart
+// chunkRanges splits [from, to] into inclusive windows of at most chunkDays.
+func chunkRanges(from, to entities.Date, chunkDays int) [][2]entities.Date {
+	var ranges [][2]entities.Date
+	for start := from; !start.After(to); {
+		end := start.AddDays(chunkDays - 1)
+		if end.After(to) {
+			end = to
 		}
+		ranges = append(ranges, [2]entities.Date{start, end})
+		start = end.AddDays(1)
 	}
+	return ranges
+}
+
+// syncActivities pulls the full backfill window of activities and upserts
+// them (idempotent by Garmin activity ID). The window is deliberately not
+// cursor-limited: re-fetching is cheap and self-heals earlier partial
+// syncs; the stored cursor is informational.
+func (s *Service) syncActivities(ctx context.Context, athleteID uuid.UUID) (int, error) {
+	from, today := backfillWindow()
 
 	activities, err := s.client.ListActivities(ctx, from.String(), today.String())
 	if err != nil {
@@ -127,29 +144,29 @@ func (s *Service) syncActivities(ctx context.Context, athleteID uuid.UUID) (int,
 	return len(activities), nil
 }
 
-// syncDailyHealth merges the daily health endpoints into one row per day.
-// Nil metrics keep their stored values on conflict, so partial fetches never
+// syncDailyHealth merges the daily health endpoints into one row per day
+// across the full backfill window. Endpoints that cap the request range are
+// fetched in chunks; entries without a calendar date are skipped. Nil
+// metrics keep their stored values on conflict, so partial fetches never
 // erase data.
 func (s *Service) syncDailyHealth(ctx context.Context, athleteID uuid.UUID) (int, error) {
-	today := entities.Date(time.Now().UTC())
-	state, err := s.repo.GetSyncState(ctx, athleteID, entities.SyncSourceGarminDailyHealth)
-	if err != nil {
-		return 0, fmt.Errorf("read health sync state: %w", err)
-	}
-
-	from := today.AddDays(-(BackfillDays - 1))
-	if state != nil && state.Cursor != nil {
-		cursor := entities.Date(*state.Cursor)
-		if overlapStart := cursor.AddDays(-OverlapDays); overlapStart.After(from) {
-			from = overlapStart
-		}
-	}
+	from, today := backfillWindow()
 
 	byDay := map[entities.Date]*entities.DailyHealth{}
 	rawByDay := map[entities.Date]map[string]json.RawMessage{}
 
+	// add returns the row for a day, or nil when the entry carries no date
+	// (Garmin occasionally emits undated junk entries).
 	add := func(day string) *entities.DailyHealth {
-		date := entities.Date(mustParseDate(day))
+		if day == "" {
+			return nil
+		}
+		parsed, err := time.Parse("2006-01-02", day)
+		if err != nil {
+			s.log.Warn("skipping entry with unparseable date", "date", day)
+			return nil
+		}
+		date := entities.Date(parsed)
 		if _, ok := byDay[date]; !ok {
 			byDay[date] = &entities.DailyHealth{AthleteID: athleteID, Day: date}
 			rawByDay[date] = map[string]json.RawMessage{}
@@ -157,91 +174,141 @@ func (s *Service) syncDailyHealth(ctx context.Context, athleteID uuid.UUID) (int
 		return byDay[date]
 	}
 
-	if summaries, err := s.client.DailySummaries(ctx, from.String(), today.String()); err == nil {
+	// fetchChunked calls a per-day-list endpoint for each chunk of the
+	// backfill window.
+	fetchChunked := func(chunkDays int, fetch func(ctx context.Context, startDate, endDate string) error) {
+		for _, window := range chunkRanges(from, today, chunkDays) {
+			if err := fetch(ctx, window[0].String(), window[1].String()); err != nil {
+				s.log.Warn("daily health chunk unavailable", "from", window[0].String(), "to", window[1].String(), "error", err)
+			}
+		}
+	}
+
+	fetchChunked(BackfillDays, func(ctx context.Context, startDate, endDate string) error {
+		summaries, err := s.client.DailySummaries(ctx, startDate, endDate)
+		if err != nil {
+			return err
+		}
 		for _, summary := range summaries {
 			day := add(summary.CalendarDate)
-			if summary.RestingHeartRate > 0 {
-				resting := summary.RestingHeartRate
-				day.RestingHR = &resting
+			if day == nil {
+				continue
 			}
-			if summary.Steps > 0 {
-				steps := summary.Steps
+			if summary.Movement.Steps.Value > 0 {
+				steps := int(summary.Movement.Steps.Value)
 				day.Steps = &steps
+			}
+			if summary.HeartRate.RestingValue > 0 {
+				resting := int(summary.HeartRate.RestingValue)
+				day.RestingHR = &resting
 			}
 			rawByDay[day.Day]["daily_summary"] = mustMarshal(summary)
 		}
-	} else {
-		s.log.Warn("daily summaries unavailable", "error", err)
-	}
+		return nil
+	})
 
-	if stress, err := s.client.StressDaily(ctx, from.String(), today.String()); err == nil {
-		for _, day := range stress {
-			if day.AverageStressLevel > 0 {
-				entry := add(day.CalendarDate)
-				avg := day.AverageStressLevel
-				entry.StressAvg = &avg
-				rawByDay[entry.Day]["stress"] = mustMarshal(day)
-			}
+	fetchChunked(stressRangeDays, func(ctx context.Context, startDate, endDate string) error {
+		stress, err := s.client.StressDaily(ctx, startDate, endDate)
+		if err != nil {
+			return err
 		}
-	} else {
-		s.log.Warn("stress unavailable", "error", err)
-	}
-
-	if hrv, err := s.client.HRVDaily(ctx, from.String(), today.String()); err == nil {
-		for _, day := range hrv {
-			if day.LastNightAvg > 0 {
-				entry := add(day.CalendarDate)
-				hrvAvg := day.LastNightAvg
-				entry.HRVMS = &hrvAvg
-				rawByDay[entry.Day]["hrv"] = mustMarshal(day)
+		for _, entry := range stress {
+			if entry.AverageStressLevel <= 0 {
+				continue
 			}
+			day := add(entry.CalendarDate)
+			if day == nil {
+				continue
+			}
+			avg := entry.AverageStressLevel
+			day.StressAvg = &avg
+			rawByDay[day.Day]["stress"] = mustMarshal(entry)
 		}
-	} else {
-		s.log.Warn("hrv unavailable", "error", err)
-	}
+		return nil
+	})
 
-	if sleep, err := s.client.SleepSummaries(ctx, from.String(), today.String()); err == nil {
-		for _, day := range sleep {
-			entry := add(day.CalendarDate)
-			if day.SleepTimeSeconds > 0 {
-				hours := day.SleepTimeSeconds / 3600
-				entry.SleepHours = &hours
-			}
-			if day.SleepScores.Overall.Value > 0 {
-				score := day.SleepScores.Overall.Value
-				entry.SleepScore = &score
-			}
-			rawByDay[entry.Day]["sleep"] = mustMarshal(day)
+	fetchChunked(BackfillDays, func(ctx context.Context, startDate, endDate string) error {
+		hrv, err := s.client.HRVDaily(ctx, startDate, endDate)
+		if err != nil {
+			return err
 		}
-	} else {
-		s.log.Warn("sleep unavailable", "error", err)
-	}
-
-	if battery, err := s.client.BodyBatteryDaily(ctx, from.String(), today.String()); err == nil {
-		for _, day := range battery {
-			if day.Charged > 0 {
-				entry := add(day.CalendarDate)
-				charged := day.Charged
-				entry.BodyBattery = &charged
-				rawByDay[entry.Day]["body_battery"] = mustMarshal(day)
+		for _, entry := range hrv {
+			if entry.LastNightAvg <= 0 {
+				continue
 			}
+			day := add(entry.CalendarDate)
+			if day == nil {
+				continue
+			}
+			hrvAvg := entry.LastNightAvg
+			day.HRVMS = &hrvAvg
+			rawByDay[day.Day]["hrv"] = mustMarshal(entry)
 		}
-	} else {
-		s.log.Warn("body battery unavailable", "error", err)
-	}
+		return nil
+	})
 
-	if weights, err := s.client.WeightRange(ctx, from.String(), today.String()); err == nil {
+	fetchChunked(sleepRangeDays, func(ctx context.Context, startDate, endDate string) error {
+		sleep, err := s.client.SleepSummaries(ctx, startDate, endDate)
+		if err != nil {
+			return err
+		}
+		for _, entry := range sleep {
+			day := add(entry.CalendarDate)
+			if day == nil {
+				continue
+			}
+			if entry.SleepTimeSeconds > 0 {
+				hours := entry.SleepTimeSeconds / 3600
+				day.SleepHours = &hours
+			}
+			if entry.SleepScores.Overall.Value > 0 {
+				score := entry.SleepScores.Overall.Value
+				day.SleepScore = &score
+			}
+			rawByDay[day.Day]["sleep"] = mustMarshal(entry)
+		}
+		return nil
+	})
+
+	fetchChunked(batteryRangeDays, func(ctx context.Context, startDate, endDate string) error {
+		battery, err := s.client.BodyBatteryDaily(ctx, startDate, endDate)
+		if err != nil {
+			return err
+		}
+		for _, entry := range battery {
+			if entry.Charged <= 0 {
+				continue
+			}
+			day := add(entry.CalendarDate)
+			if day == nil {
+				continue
+			}
+			charged := entry.Charged
+			day.BodyBattery = &charged
+			rawByDay[day.Day]["body_battery"] = mustMarshal(entry)
+		}
+		return nil
+	})
+
+	fetchChunked(BackfillDays, func(ctx context.Context, startDate, endDate string) error {
+		weights, err := s.client.WeightRange(ctx, startDate, endDate)
+		if err != nil {
+			return err
+		}
 		for _, measurement := range weights {
-			if measurement.Weight > 0 {
-				entry := add(measurement.Date)
-				weight := measurement.Weight
-				entry.WeightKg = &weight
-				rawByDay[entry.Day]["weight"] = mustMarshal(measurement)
+			if measurement.Weight <= 0 {
+				continue
 			}
+			day := add(measurement.Date)
+			if day == nil {
+				continue
+			}
+			weight := measurement.Weight
+			day.WeightKg = &weight
+			rawByDay[day.Day]["weight"] = mustMarshal(measurement)
 		}
-	} else {
-		s.log.Warn("weight unavailable", "error", err)
-	}
+		return nil
+	})
 
 	for date, health := range byDay {
 		health.Raw = mustMarshal(rawByDay[date])
@@ -260,6 +327,10 @@ func (s *Service) syncDailyHealth(ctx context.Context, athleteID uuid.UUID) (int
 		s.log.Warn("heart rate zones unavailable", "error", err)
 	}
 
+	// VO2max comes from the metrics endpoint (activity summaries usually omit
+	// it); keep the latest measurement for the derived profile.
+	s.refreshVO2Max(ctx, athleteID, from, today)
+
 	if err := s.repo.SaveSyncStateSuccess(ctx, athleteID, entities.SyncSourceGarminDailyHealth, today); err != nil {
 		return len(byDay), fmt.Errorf("save health sync state: %w", err)
 	}
@@ -268,6 +339,47 @@ func (s *Service) syncDailyHealth(ctx context.Context, athleteID uuid.UUID) (int
 
 // appSettingHRZones is the app_settings key for the synced Garmin zones.
 const appSettingHRZones = "garmin_hr_zones"
+
+// appSettingVO2Max is the app_settings key for the latest VO2max estimate.
+const appSettingVO2Max = "garmin_vo2max"
+
+// VO2MaxSnapshot is the stored latest VO2max measurement.
+type VO2MaxSnapshot struct {
+	Value float64       `json:"value"`
+	Date  entities.Date `json:"date"`
+}
+
+// refreshVO2Max fetches the VO2max history over the window and stores the
+// most recent estimate. The maxmet endpoint caps its range like sleep does,
+// so it is fetched in chunks.
+func (s *Service) refreshVO2Max(ctx context.Context, athleteID uuid.UUID, from, to entities.Date) {
+	var latest *VO2MaxSnapshot
+	for _, window := range chunkRanges(from, to, sleepRangeDays) {
+		measurements, err := s.client.VO2MaxDaily(ctx, window[0].String(), window[1].String())
+		if err != nil {
+			s.log.Warn("vo2max unavailable", "from", window[0].String(), "to", window[1].String(), "error", err)
+			continue
+		}
+		for _, measurement := range measurements {
+			if measurement.Generic.VO2MaxPreciseValue <= 0 || measurement.Generic.CalendarDate == "" {
+				continue
+			}
+			parsed, err := time.Parse("2006-01-02", measurement.Generic.CalendarDate)
+			if err != nil {
+				continue
+			}
+			snapshot := &VO2MaxSnapshot{Value: measurement.Generic.VO2MaxPreciseValue, Date: entities.Date(parsed)}
+			if latest == nil || snapshot.Date.After(latest.Date) {
+				latest = snapshot
+			}
+		}
+	}
+	if latest != nil {
+		if err := s.repo.SetAppSetting(ctx, appSettingVO2Max, latest); err != nil {
+			s.log.Warn("store vo2max", "error", err)
+		}
+	}
+}
 
 // SyncStatus reports the per-source sync state for the status endpoint.
 type SyncStatus struct {
@@ -325,14 +437,6 @@ func normalizeActivity(activity garmin.Activity, athleteID uuid.UUID) (*entities
 		normalized.VO2Max = &vo2max
 	}
 	return normalized, nil
-}
-
-func mustParseDate(value string) time.Time {
-	parsed, err := time.Parse("2006-01-02", value)
-	if err != nil {
-		return time.Time{}
-	}
-	return parsed.UTC()
 }
 
 func mustMarshal(value any) []byte {

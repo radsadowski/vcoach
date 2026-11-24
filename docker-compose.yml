@@ -26,13 +26,13 @@ services:
       GARMIN_API_KEY: ${GARMIN_API_KEY:-}
       SYNC_INTERVAL_MIN: ${SYNC_INTERVAL_MIN:-60}
     ports:
-      - "8080:8080"
+      - "${PORT:-8080}:${PORT:-8080}"
     depends_on:
       db:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:8080/healthz || exit 1"]
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:${PORT:-8080}/healthz || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 3
@@ -42,7 +42,7 @@ services:
       context: .
       dockerfile: web/Dockerfile
     environment:
-      API_TARGET: http://api:8080
+      API_TARGET: http://api:${PORT:-8080}
       PORT: 3000
     ports:
       - "3000:3000"

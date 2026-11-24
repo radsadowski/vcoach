@@ -30,6 +30,13 @@ func Routes(r chi.Router, svc *chatsvc.Service, coach *coachsvc.Service) {
 	r.Post("/chat-sessions/{id}/messages", h.sendMessage)
 }
 
+// list godoc
+// @Summary      List chat sessions
+// @Description  The athlete's coaching conversations, newest first.
+// @Tags         chat
+// @Produce      json
+// @Success      200 {array} entities.ChatSession
+// @Router       /chat-sessions [get]
 func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	sessions, err := h.svc.ListSessions(r.Context(), httpx.AthleteID(r.Context()))
 	if err != nil {
@@ -42,6 +49,15 @@ func (h *handler) list(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, sessions)
 }
 
+// create godoc
+// @Summary      Create a chat session
+// @Tags         chat
+// @Accept       json
+// @Produce      json
+// @Param        body body object false "Optional {title}"
+// @Success      201 {object} entities.ChatSession
+// @Failure      400 {object} httpx.ErrorResponse
+// @Router       /chat-sessions [post]
 func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		Title string `json:"title"`
@@ -61,6 +77,16 @@ func (h *handler) create(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusCreated, session)
 }
 
+// messages godoc
+// @Summary      List chat messages
+// @Description  Message history of one chat session, oldest first.
+// @Tags         chat
+// @Produce      json
+// @Param        id path string true "Chat session ID"
+// @Success      200 {array} entities.ChatMessage
+// @Failure      400 {object} httpx.ErrorResponse
+// @Failure      404 {object} httpx.ErrorResponse
+// @Router       /chat-sessions/{id}/messages [get]
 func (h *handler) messages(w http.ResponseWriter, r *http.Request) {
 	sessionID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {
@@ -84,6 +110,18 @@ func (h *handler) messages(w http.ResponseWriter, r *http.Request) {
 //	event: delta  data: {"delta": "..."}     — final-answer tokens
 //	event: done   data: {"messageId": "..."} — reply persisted
 //	event: error  data: {"error": "..."}     — the turn failed
+//
+// sendMessage godoc
+// @Summary      Send a message to the coach
+// @Description  Streams the coach reply as Server-Sent Events: "delta" events carry final-answer tokens, "done" carries the persisted message ID, "error" carries a failure. The coach may create goals and plans via tool calls during the turn.
+// @Tags         chat
+// @Accept       json
+// @Produce      text/event-stream
+// @Param        id   path string true "Chat session ID"
+// @Param        body body object true "{content}"
+// @Success      200 {string} string "SSE stream"
+// @Failure      400 {object} httpx.ErrorResponse
+// @Router       /chat-sessions/{id}/messages [post]
 func (h *handler) sendMessage(w http.ResponseWriter, r *http.Request) {
 	sessionID, err := uuid.Parse(chi.URLParam(r, "id"))
 	if err != nil {

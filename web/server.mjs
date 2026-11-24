@@ -17,7 +17,7 @@ app.use(
   createProxyMiddleware({
     target: apiTarget,
     changeOrigin: true,
-    pathFilter: ["/api", "/healthz"],
+    pathFilter: ["/api", "/healthz", "/swagger"],
   }),
 );
 

@@ -1,0 +1,1035 @@
+basePath: /api
+definitions:
+  entities.ChatMessage:
+    properties:
+      athleteId:
+        type: string
+      chatSessionId:
+        type: string
+      content:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      role:
+        type: string
+      toolCalls:
+        items:
+          type: integer
+        type: array
+    type: object
+  entities.ChatSession:
+    properties:
+      athleteId:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      title:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  entities.ClimbingSession:
+    properties:
+      athleteId:
+        type: string
+      attempts:
+        type: integer
+      createdAt:
+        type: string
+      discipline:
+        type: string
+      hardestAttempted:
+        type: string
+      hardestSent:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      rpe:
+        type: integer
+      sessionDate:
+        type: string
+      venue:
+        type: string
+    type: object
+  entities.CreateClimbingSessionInput:
+    properties:
+      attempts:
+        type: integer
+      discipline:
+        type: string
+      hardestAttempted:
+        type: string
+      hardestSent:
+        type: string
+      notes:
+        type: string
+      rpe:
+        type: integer
+      sessionDate:
+        type: string
+      venue:
+        type: string
+    type: object
+  entities.CreateGoalInput:
+    properties:
+      activityType:
+        $ref: '#/definitions/entities.GoalActivityType'
+      isPrimary:
+        type: boolean
+      notes:
+        type: string
+      targetDate:
+        type: string
+      targetMetric:
+        type: string
+      targetValue:
+        type: string
+    type: object
+  entities.CreatePlanInput:
+    properties:
+      goalId:
+        type: string
+      notes:
+        type: string
+      title:
+        type: string
+      weeks:
+        items:
+          $ref: '#/definitions/entities.CreateWeekInput'
+        type: array
+    type: object
+  entities.CreateSessionInput:
+    properties:
+      description:
+        type: string
+      plannedDate:
+        type: string
+      sessionType:
+        type: string
+      sport:
+        type: string
+      targetDistanceKm:
+        type: number
+      targetDurationMin:
+        type: integer
+      targetIntensity:
+        type: string
+    type: object
+  entities.CreateWeekInput:
+    properties:
+      focus:
+        type: string
+      sessions:
+        items:
+          $ref: '#/definitions/entities.CreateSessionInput'
+        type: array
+      startDate:
+        type: string
+      weekNumber:
+        type: integer
+    type: object
+  entities.Goal:
+    properties:
+      activityType:
+        $ref: '#/definitions/entities.GoalActivityType'
+      athleteId:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: string
+      isPrimary:
+        type: boolean
+      notes:
+        type: string
+      status:
+        $ref: '#/definitions/entities.GoalStatus'
+      targetDate:
+        type: string
+      targetMetric:
+        type: string
+      targetValue:
+        type: string
+      updatedAt:
+        type: string
+    type: object
+  entities.GoalActivityType:
+    enum:
+    - run
+    - boulder
+    - lead
+    type: string
+    x-enum-varnames:
+    - GoalActivityRun
+    - GoalActivityBoulder
+    - GoalActivityLead
+  entities.GoalStatus:
+    enum:
+    - active
+    - achieved
+    - abandoned
+    type: string
+    x-enum-varnames:
+    - GoalStatusActive
+    - GoalStatusAchieved
+    - GoalStatusAbandoned
+  entities.Plan:
+    properties:
+      athleteId:
+        type: string
+      createdAt:
+        type: string
+      goalId:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      status:
+        $ref: '#/definitions/entities.PlanStatus'
+      title:
+        type: string
+      version:
+        type: integer
+    type: object
+  entities.PlanSession:
+    properties:
+      athleteId:
+        type: string
+      completedAt:
+        type: string
+      description:
+        type: string
+      id:
+        type: string
+      matchedActivityId:
+        type: string
+      plannedDate:
+        type: string
+      sessionType:
+        type: string
+      sport:
+        type: string
+      status:
+        $ref: '#/definitions/entities.SessionStatus'
+      targetDistanceKm:
+        type: number
+      targetDurationMin:
+        type: integer
+      targetIntensity:
+        type: string
+      weekId:
+        type: string
+    type: object
+  entities.PlanStatus:
+    enum:
+    - active
+    - archived
+    type: string
+    x-enum-varnames:
+    - PlanStatusActive
+    - PlanStatusArchived
+  entities.PlanWeekWithSessions:
+    properties:
+      focus:
+        type: string
+      id:
+        type: string
+      planId:
+        type: string
+      sessions:
+        items:
+          $ref: '#/definitions/entities.PlanSession'
+        type: array
+      startDate:
+        type: string
+      weekNumber:
+        type: integer
+    type: object
+  entities.PlanWithSessions:
+    properties:
+      athleteId:
+        type: string
+      createdAt:
+        type: string
+      goalId:
+        type: string
+      id:
+        type: string
+      notes:
+        type: string
+      status:
+        $ref: '#/definitions/entities.PlanStatus'
+      title:
+        type: string
+      version:
+        type: integer
+      weeks:
+        items:
+          $ref: '#/definitions/entities.PlanWeekWithSessions'
+        type: array
+    type: object
+  entities.SessionStatus:
+    enum:
+    - planned
+    - completed
+    - missed
+    - skipped
+    type: string
+    x-enum-varnames:
+    - SessionStatusPlanned
+    - SessionStatusCompleted
+    - SessionStatusMissed
+    - SessionStatusSkipped
+  entities.SyncState:
+    properties:
+      athleteId:
+        type: string
+      cursor:
+        type: string
+      lastError:
+        type: string
+      lastErrorAt:
+        type: string
+      lastSyncedAt:
+        type: string
+      source:
+        type: string
+    type: object
+  entities.UpdateAthleteInput:
+    properties:
+      birthYear:
+        type: integer
+      climbingExperience:
+        type: string
+      runningExperience:
+        type: string
+      sex:
+        type: string
+      weightKg:
+        type: number
+    type: object
+  entities.UpdateClimbingSessionInput:
+    properties:
+      attempts:
+        type: integer
+      discipline:
+        type: string
+      hardestAttempted:
+        type: string
+      hardestSent:
+        type: string
+      notes:
+        type: string
+      rpe:
+        type: integer
+      sessionDate:
+        type: string
+      venue:
+        type: string
+    type: object
+  entities.UpdateGoalInput:
+    properties:
+      isPrimary:
+        type: boolean
+      notes:
+        type: string
+      status:
+        $ref: '#/definitions/entities.GoalStatus'
+    type: object
+  goals.ClimbProgress:
+    properties:
+      attempts30d:
+        type: integer
+      discipline:
+        type: string
+      hardestSent:
+        type: string
+      hardestSentRank:
+        type: integer
+      rankGap:
+        type: integer
+      sessions30d:
+        type: integer
+      targetRank:
+        type: integer
+    type: object
+  goals.Progress:
+    properties:
+      activityType:
+        $ref: '#/definitions/entities.GoalActivityType'
+      climb:
+        $ref: '#/definitions/goals.ClimbProgress'
+      goalId:
+        type: string
+      run:
+        $ref: '#/definitions/goals.RunProgress'
+      targetValue:
+        type: string
+    type: object
+  goals.RunProgress:
+    properties:
+      bestPaceSecPerKm:
+        type: integer
+      longestRunKm:
+        type: number
+      weeklyVolumes:
+        items:
+          $ref: '#/definitions/repository.WeeklyRunVolume'
+        type: array
+    type: object
+  httpx.ErrorResponse:
+    properties:
+      error:
+        example: validation failed
+        type: string
+    type: object
+  profile.AthleteWithDerived:
+    properties:
+      birthYear:
+        type: integer
+      climbingExperience:
+        type: string
+      createdAt:
+        type: string
+      derived:
+        $ref: '#/definitions/profile.Derived'
+      id:
+        type: string
+      name:
+        type: string
+      runningExperience:
+        type: string
+      sex:
+        type: string
+      weightKg:
+        type: number
+    type: object
+  profile.Derived:
+    properties:
+      heartRate:
+        $ref: '#/definitions/profile.HeartRateInfo'
+      longestRunKm:
+        type: number
+      vo2max:
+        type: number
+      weeklyVolumes:
+        items:
+          $ref: '#/definitions/profile.WeeklyVolume'
+        type: array
+      weight:
+        $ref: '#/definitions/profile.WeightTrend'
+    type: object
+  profile.HeartRateInfo:
+    properties:
+      maxHeartRate:
+        type: integer
+      restingHr:
+        type: integer
+      zone1Floor:
+        type: integer
+      zone2Floor:
+        type: integer
+      zone3Floor:
+        type: integer
+      zone4Floor:
+        type: integer
+    type: object
+  profile.WeeklyVolume:
+    properties:
+      distanceKm:
+        type: number
+      sessionCount:
+        type: integer
+      week:
+        type: string
+    type: object
+  profile.WeightTrend:
+    properties:
+      changeKg:
+        type: number
+      daysAgoKg:
+        type: number
+      latestKg:
+        type: number
+    type: object
+  repository.WeeklyRunVolume:
+    properties:
+      distanceKm:
+        type: number
+      sessionCount:
+        type: integer
+      week:
+        type: string
+    type: object
+  sync.Result:
+    properties:
+      activitiesSynced:
+        type: integer
+      errors:
+        items:
+          type: string
+        type: array
+      healthDaysSynced:
+        type: integer
+    type: object
+  sync.SyncStatus:
+    properties:
+      sources:
+        items:
+          $ref: '#/definitions/entities.SyncState'
+        type: array
+    type: object
+host: localhost:8080
+info:
+  contact: {}
+  description: |-
+    Personal AI athletic training coach — chat-first, self-hosted.
+    The current athlete is resolved server-side (personal-first MVP); requests need no authentication headers yet.
+  title: vcoach API
+  version: "1.0"
+paths:
+  /chat-sessions:
+    get:
+      description: The athlete's coaching conversations, newest first.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entities.ChatSession'
+            type: array
+      summary: List chat sessions
+      tags:
+      - chat
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Optional {title}
+        in: body
+        name: body
+        schema:
+          type: object
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/entities.ChatSession'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Create a chat session
+      tags:
+      - chat
+  /chat-sessions/{id}/messages:
+    get:
+      description: Message history of one chat session, oldest first.
+      parameters:
+      - description: Chat session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entities.ChatMessage'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: List chat messages
+      tags:
+      - chat
+    post:
+      consumes:
+      - application/json
+      description: 'Streams the coach reply as Server-Sent Events: "delta" events
+        carry final-answer tokens, "done" carries the persisted message ID, "error"
+        carries a failure. The coach may create goals and plans via tool calls during
+        the turn.'
+      parameters:
+      - description: Chat session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: '{content}'
+        in: body
+        name: body
+        required: true
+        schema:
+          type: object
+      produces:
+      - text/event-stream
+      responses:
+        "200":
+          description: SSE stream
+          schema:
+            type: string
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Send a message to the coach
+      tags:
+      - chat
+  /climbing-sessions:
+    get:
+      description: Manual climbing log entries in the inclusive date range.
+      parameters:
+      - description: Range start (YYYY-MM-DD)
+        in: query
+        name: from
+        type: string
+      - description: Range end (YYYY-MM-DD)
+        in: query
+        name: to
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entities.ClimbingSession'
+            type: array
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: List climbing sessions
+      tags:
+      - climbing
+    post:
+      consumes:
+      - application/json
+      description: Boulder and lead grades use the Font scale (e.g. 6B, 7A boulder;
+        6a, 7a+ lead). Hardest sent cannot be harder than hardest attempted.
+      parameters:
+      - description: Session to log
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/entities.CreateClimbingSessionInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/entities.ClimbingSession'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Log a climbing session
+      tags:
+      - climbing
+  /climbing-sessions/{id}:
+    delete:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Delete a climbing session
+      tags:
+      - climbing
+    get:
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entities.ClimbingSession'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Get a climbing session
+      tags:
+      - climbing
+    put:
+      consumes:
+      - application/json
+      description: Partial update; grades are re-validated after merging with the
+        stored session.
+      parameters:
+      - description: Session ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/entities.UpdateClimbingSessionInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entities.ClimbingSession'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Update a climbing session
+      tags:
+      - climbing
+  /goals:
+    get:
+      description: All goals of the athlete, newest first.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entities.Goal'
+            type: array
+      summary: List goals
+      tags:
+      - goals
+    post:
+      consumes:
+      - application/json
+      description: Catalog-validated goal (run events in km, boulder and lead goals
+        as Font grades). Setting isPrimary clears other active goals.
+      parameters:
+      - description: Goal to create
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/entities.CreateGoalInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/entities.Goal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Create a goal
+      tags:
+      - goals
+  /goals/{id}:
+    delete:
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Delete a goal
+      tags:
+      - goals
+    patch:
+      consumes:
+      - application/json
+      description: Partial update of status, primary flag and notes. Setting isPrimary
+        clears other active goals.
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Fields to update
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/entities.UpdateGoalInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entities.Goal'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Update a goal
+      tags:
+      - goals
+  /goals/{id}/progress:
+    get:
+      description: 'Progress facts for one goal: run goals (longest run 30d, best
+        pace, weekly volumes) or climb goals (hardest sent 30d, rank gap to target,
+        attempts).'
+      parameters:
+      - description: Goal ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/goals.Progress'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Get goal progress
+      tags:
+      - goals
+  /plans:
+    get:
+      description: All plan versions of the athlete, newest version first.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/entities.Plan'
+            type: array
+      summary: List plan versions
+      tags:
+      - plans
+    post:
+      consumes:
+      - application/json
+      description: Creates the next plan version and archives the current active one
+        atomically. Weeks need consecutive weekNumbers starting at 1; sessions carry
+        YYYY-MM-DD planned dates.
+      parameters:
+      - description: Plan to create
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/entities.CreatePlanInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/entities.PlanWithSessions'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Create a training plan
+      tags:
+      - plans
+  /plans/{id}:
+    delete:
+      description: Archives a plan version (e.g. before regenerating via chat).
+      parameters:
+      - description: Plan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      responses:
+        "204":
+          description: No content
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Archive the active plan
+      tags:
+      - plans
+    get:
+      description: One plan version with weeks, sessions and per-session compliance.
+      parameters:
+      - description: Plan ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/entities.PlanWithSessions'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Get a plan
+      tags:
+      - plans
+  /profile:
+    get:
+      description: Manual basics plus metrics derived from synced Garmin data (HR
+        zones, VO2max, weekly volumes, longest run, weight trend).
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.AthleteWithDerived'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Get the athlete profile
+      tags:
+      - profile
+    put:
+      consumes:
+      - application/json
+      description: Updates manual profile basics; nil fields are kept.
+      parameters:
+      - description: Profile basics
+        in: body
+        name: body
+        required: true
+        schema:
+          $ref: '#/definitions/entities.UpdateAthleteInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/profile.AthleteWithDerived'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/httpx.ErrorResponse'
+      summary: Update profile basics
+      tags:
+      - profile
+  /sync:
+    post:
+      description: Pulls activities and daily health since the cursor (90-day backfill
+        on first sync) and applies compliance matching. Returns per-run counts and
+        any per-source errors.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sync.Result'
+      summary: Trigger a Garmin sync
+      tags:
+      - sync
+  /sync/status:
+    get:
+      description: 'Per-source sync state: last synced time, cursor and last error
+        (e.g. an expired Garmin API key).'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/sync.SyncStatus'
+      summary: Get sync status
+      tags:
+      - sync
+schemes:
+- http
+- https
+swagger: "2.0"

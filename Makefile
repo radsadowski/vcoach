@@ -1,10 +1,13 @@
-.PHONY: dev dev-api dev-web test test-go test-web build compose-up compose-down e2e fmt
+.PHONY: dev dev-api dev-web test test-go test-web build compose-up compose-down e2e fmt swagger
+
+swagger: ## Regenerate the OpenAPI spec from handler annotations (needs: go install github.com/swaggo/swag/cmd/swag@latest).
+	cd server && swag init -g cmd/server/main.go --parseInternal
 
 dev: ## Hot loop: postgres via compose + Go API + Vite dev server.
 	./scripts/dev.sh
 
-dev-api: ## Run the Go API locally (expects postgres on localhost:5432).
-	cd server && go run ./cmd/server
+dev-api: ## Run the Go API with hot reload (air; expects postgres on localhost:5432).
+	cd server && air
 
 dev-web: ## Run the Vite dev server only.
 	npm run dev --workspace @vcoach/web

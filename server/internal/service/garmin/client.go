@@ -7,6 +7,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"sync"
 	"time"
@@ -26,6 +27,7 @@ type Client interface {
 	SleepSummaries(ctx context.Context, startDate, endDate string) ([]SleepSummary, error)
 	BodyBatteryDaily(ctx context.Context, startDate, endDate string) ([]DailyBodyBattery, error)
 	WeightRange(ctx context.Context, startDate, endDate string) ([]WeightMeasurement, error)
+	VO2MaxDaily(ctx context.Context, startDate, endDate string) ([]VO2MaxMeasurement, error)
 	HeartRateZones(ctx context.Context) (HeartRateZones, error)
 }
 
@@ -47,11 +49,28 @@ type ActivityTypeRef struct {
 	TypeKey string `json:"typeKey"`
 }
 
-// DailySummary holds per-day wellness metrics (usersummary-service).
+// DailySummary holds per-day wellness metrics (usersummary-service v2).
 type DailySummary struct {
-	CalendarDate     string `json:"calendarDate"`
-	RestingHeartRate int    `json:"restingHeartRate"`
-	Steps            int    `json:"steps"`
+	CalendarDate string         `json:"calendarDate"`
+	HeartRate    DailyHeartRate `json:"heartRate"`
+	Movement     DailyMovement  `json:"movement"`
+}
+
+// DailyHeartRate holds the day's heart-rate extrema.
+type DailyHeartRate struct {
+	RestingValue float64 `json:"restingValue"`
+}
+
+// DailyMovement holds the day's movement metrics.
+type DailyMovement struct {
+	Steps DailySteps `json:"steps"`
+}
+
+// DailySteps holds the step count and its goal.
+type DailySteps struct {
+	Goal             float64 `json:"goal"`
+	Value            float64 `json:"value"`
+	DistanceInMeters float64 `json:"distanceInMeters"`
 }
 
 // DailyStress holds the average daily stress level.
@@ -95,15 +114,28 @@ type WeightMeasurement struct {
 	Weight float64 `json:"weight"`
 }
 
+// VO2MaxMeasurement is one day's VO2max estimate (metrics-service maxmet).
+type VO2MaxMeasurement struct {
+	Generic VO2MaxEntry `json:"generic"`
+}
+
+// VO2MaxEntry holds the running VO2max estimate for one day.
+type VO2MaxEntry struct {
+	CalendarDate       string  `json:"calendarDate"`
+	VO2MaxPreciseValue float64 `json:"vo2MaxPreciseValue"`
+}
+
 // HeartRateZones is the athlete's configured heart-rate zone set.
 type HeartRateZones struct {
-	MaxHeartRate int `json:"maxHeartRate"`
-	RestingHR    int `json:"restingHr"`
-	LactateHR    int `json:"lactateHr"`
-	Zone1Floor   int `json:"zone1Floor"`
-	Zone2Floor   int `json:"zone2Floor"`
-	Zone3Floor   int `json:"zone3Floor"`
-	Zone4Floor   int `json:"zone4Floor"`
+	Sport        string `json:"sport"`
+	MaxHeartRate int    `json:"maxHeartRateUsed"`
+	RestingHR    int    `json:"restingHeartRateUsed"`
+	LactateHR    int    `json:"lactateThresholdHeartRateUsed"`
+	Zone1Floor   int    `json:"zone1Floor"`
+	Zone2Floor   int    `json:"zone2Floor"`
+	Zone3Floor   int    `json:"zone3Floor"`
+	Zone4Floor   int    `json:"zone4Floor"`
+	Zone5Floor   int    `json:"zone5Floor"`
 }
 
 // HTTPClient implements Client against the live Personal API.
@@ -158,8 +190,13 @@ func (c *HTTPClient) get(ctx context.Context, path string, out any) error {
 	if resp.StatusCode != http.StatusOK {
 		return &HTTPStatusError{Path: path, StatusCode: resp.StatusCode}
 	}
-	if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
-		return fmt.Errorf("garmin decode %s: %w", path, err)
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("garmin GET %s: read body: %w", path, err)
+	}
+	if err := json.Unmarshal(body, out); err != nil {
+		return fmt.Errorf("garmin decode %s: %w (body starts with: %.200s)", path, err, body)
 	}
 	return nil
 }

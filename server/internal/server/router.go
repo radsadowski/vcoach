@@ -11,6 +11,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/go-chi/chi/v5/middleware"
 	"github.com/google/uuid"
+	httpSwagger "github.com/swaggo/http-swagger"
 
 	"github.com/radosny/vcoach/server/internal/server/chat"
 	"github.com/radosny/vcoach/server/internal/server/climbing"
@@ -54,6 +55,11 @@ func NewRouter(deps Deps) http.Handler {
 	r.Use(loggingMiddleware(deps.Log))
 
 	r.Get("/healthz", handleHealthz)
+
+	// Swagger UI: schema browsing and direct requests against the API.
+	r.Get("/swagger/*", httpSwagger.Handler(
+		httpSwagger.URL("/swagger/doc.json"),
+	))
 
 	r.Route("/api", func(api chi.Router) {
 		api.Use(deps.resolveAthlete)

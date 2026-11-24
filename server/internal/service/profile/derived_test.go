@@ -61,7 +61,7 @@ func TestGetDerived(t *testing.T) {
 	r.NoError(err)
 
 	err = repo.SetAppSetting(ctx, "garmin_hr_zones", map[string]int{
-		"maxHeartRate": 190, "restingHr": 50,
+		"maxHeartRateUsed": 190, "restingHeartRateUsed": 50,
 		"zone1Floor": 100, "zone2Floor": 120, "zone3Floor": 145, "zone4Floor": 165,
 	})
 	r.NoError(err)

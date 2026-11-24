@@ -54,6 +54,59 @@ func TestHTTPClient(t *testing.T) {
 		r.Equal(2400.0, activities[0].Duration)
 	})
 
+	t.Run("decodes the wrapped response shapes of the health endpoints", func(t *testing.T) {
+		r := require.New(t)
+
+		// given: the wire shapes Garmin actually returns (v2 dailysummaries
+		// wraps in {"data": ...}, HRV in {"hrvSummaries": ...}, weight in
+		// {"dailyWeightSummaries": [{...latestWeight: {weight}}]}, and HR
+		// zones come as an array per sport)
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+			w.Header().Set("Content-Type", "application/json")
+			switch req.URL.Path {
+			case tokenPath:
+				fmt.Fprint(w, testJWT(t, time.Now().Add(2*time.Hour)))
+			case "/usersummary-service/v2/dailysummaries":
+				fmt.Fprint(w, `{"data":[{"calendarDate":"2026-11-20","heartRate":{"restingValue":52},"movement":{"steps":{"value":9800,"goal":13240}}}]}`)
+			case "/hrv-service/hrv/daily/2026-11-20/2026-11-20":
+				fmt.Fprint(w, `{"hrvSummaries":[{"calendarDate":"2026-11-20","lastNightAvg":64}]}`)
+			case "/weight-service/weight/range/2026-11-20/2026-11-20":
+				fmt.Fprint(w, `{"dailyWeightSummaries":[{"summaryDate":"2026-11-20","latestWeight":{"weight":72.4}}]}`)
+			case "/biometric-service/heartRateZones/v2":
+				fmt.Fprint(w, `[{"sport":"RUNNING","maxHeartRateUsed":185},{"sport":"DEFAULT","maxHeartRateUsed":190,"restingHeartRateUsed":50,"zone1Floor":100,"zone2Floor":120,"zone3Floor":145,"zone4Floor":165}]`)
+			default:
+				w.WriteHeader(http.StatusNotFound)
+			}
+		}))
+		defer srv.Close()
+		client := NewHTTPClientForURL(srv.URL, "key")
+
+		// when / then
+		summaries, err := client.DailySummaries(t.Context(), "2026-11-20", "2026-11-20")
+		r.NoError(err)
+		r.Len(summaries, 1)
+		r.InDelta(52, summaries[0].HeartRate.RestingValue, 0.001)
+		r.InDelta(9800, summaries[0].Movement.Steps.Value, 0.001)
+
+		hrv, err := client.HRVDaily(t.Context(), "2026-11-20", "2026-11-20")
+		r.NoError(err)
+		r.Len(hrv, 1)
+		r.Equal(64, hrv[0].LastNightAvg)
+
+		weights, err := client.WeightRange(t.Context(), "2026-11-20", "2026-11-20")
+		r.NoError(err)
+		r.Len(weights, 1)
+		r.Equal("2026-11-20", weights[0].Date)
+		r.InDelta(72.4, weights[0].Weight, 0.001)
+
+		zones, err := client.HeartRateZones(t.Context())
+		r.NoError(err)
+		r.Equal("DEFAULT", zones.Sport)
+		r.Equal(190, zones.MaxHeartRate)
+		r.Equal(50, zones.RestingHR)
+		r.Equal(120, zones.Zone2Floor)
+	})
+
 	t.Run("surfaces unauthorized errors from the token exchange", func(t *testing.T) {
 		r := require.New(t)
 

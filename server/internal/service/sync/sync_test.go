@@ -121,6 +121,7 @@ func TestService(t *testing.T) {
 		failing.EXPECT().SleepSummaries(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 		failing.EXPECT().BodyBatteryDaily(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 		failing.EXPECT().WeightRange(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
+		failing.EXPECT().VO2MaxDaily(gomock.Any(), gomock.Any(), gomock.Any()).Return(nil, nil).AnyTimes()
 		failing.EXPECT().HeartRateZones(gomock.Any()).Return(garmin.HeartRateZones{}, nil).AnyTimes()
 		failingSvc := syncsvc.New(repo, failing, discardLogger())
 
@@ -173,6 +174,40 @@ func TestService(t *testing.T) {
 		r.Equal(entities.SessionStatusMissed, sessionStates["run/easy"])
 	})
 
+	t.Run("skips entries without a calendar date", func(t *testing.T) {
+		r := requireNew(t)
+
+		// given: the same junk entry Garmin occasionally emits — undated
+		// sleep/body-battery rows (this produced a 0001-01-01 row in production)
+		junkFixture := map[string]any{
+			"summaries": []garmin.DailySummary{},
+			"stress":    []garmin.DailyStress{},
+			"hrv":       []garmin.DailyHRV{},
+			"sleep": []garmin.SleepSummary{
+				{CalendarDate: "", SleepTimeSeconds: 0},
+			},
+			"battery": []garmin.DailyBodyBattery{
+				{CalendarDate: "", Charged: 80},
+			},
+			"weights": []garmin.WeightMeasurement{},
+			"vo2max":  []garmin.VO2MaxMeasurement{},
+		}
+		freshCtrl := gomock.NewController(t)
+		freshClient := mock.NewMockClient(freshCtrl)
+		expectHealthyEndpoints(freshClient, []garmin.Activity{}, junkFixture)
+		freshSvc := syncsvc.New(repo, freshClient, discardLogger())
+
+		// when
+		result, err := freshSvc.SyncNow(ctx, athleteID)
+
+		// then: no zero-date rows were created
+		r.NoError(err)
+		r.Equal(0, result.HealthDaysSynced)
+		health, err := repo.ListDailyHealth(ctx, athleteID, entities.Date(mustParseDay("0001-01-01")), entities.Date(mustParseDay("0001-01-01")))
+		r.NoError(err)
+		r.Empty(health)
+	})
+
 	t.Run("status lists sync sources", func(t *testing.T) {
 		r := requireNew(t)
 
@@ -195,5 +230,6 @@ func expectHealthyEndpoints(client *mock.MockClient, activities []garmin.Activit
 	client.EXPECT().SleepSummaries(gomock.Any(), gomock.Any(), gomock.Any()).Return(daily["sleep"], nil).AnyTimes()
 	client.EXPECT().BodyBatteryDaily(gomock.Any(), gomock.Any(), gomock.Any()).Return(daily["battery"], nil).AnyTimes()
 	client.EXPECT().WeightRange(gomock.Any(), gomock.Any(), gomock.Any()).Return(daily["weights"], nil).AnyTimes()
+	client.EXPECT().VO2MaxDaily(gomock.Any(), gomock.Any(), gomock.Any()).Return(daily["vo2max"], nil).AnyTimes()
 	client.EXPECT().HeartRateZones(gomock.Any()).Return(garmin.HeartRateZones{MaxHeartRate: 190, RestingHR: 50, Zone2Floor: 120}, nil).AnyTimes()
 }

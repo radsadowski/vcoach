@@ -37,9 +37,13 @@ func (c *HTTPClient) ListActivities(ctx context.Context, startDate, endDate stri
 
 // DailySummaries returns per-day wellness metrics (resting HR, steps).
 func (c *HTTPClient) DailySummaries(ctx context.Context, startDate, endDate string) ([]DailySummary, error) {
-	var out []DailySummary
-	err := c.get(ctx, "/usersummary-service/v2/dailysummaries?startDate="+startDate+"&endDate="+endDate, &out)
-	return out, err
+	var response struct {
+		Data []DailySummary `json:"data"`
+	}
+	if err := c.get(ctx, "/usersummary-service/v2/dailysummaries?startDate="+startDate+"&endDate="+endDate, &response); err != nil {
+		return nil, err
+	}
+	return response.Data, nil
 }
 
 // StressDaily returns the average stress level per day.
@@ -51,9 +55,13 @@ func (c *HTTPClient) StressDaily(ctx context.Context, startDate, endDate string)
 
 // HRVDaily returns nightly HRV averages per day.
 func (c *HTTPClient) HRVDaily(ctx context.Context, startDate, endDate string) ([]DailyHRV, error) {
-	var out []DailyHRV
-	err := c.get(ctx, "/hrv-service/hrv/daily/"+startDate+"/"+endDate, &out)
-	return out, err
+	var response struct {
+		HRVSummaries []DailyHRV `json:"hrvSummaries"`
+	}
+	if err := c.get(ctx, "/hrv-service/hrv/daily/"+startDate+"/"+endDate, &response); err != nil {
+		return nil, err
+	}
+	return response.HRVSummaries, nil
 }
 
 // SleepSummaries returns one sleep summary per night.
@@ -72,15 +80,51 @@ func (c *HTTPClient) BodyBatteryDaily(ctx context.Context, startDate, endDate st
 
 // WeightRange returns weight measurements in the inclusive date range.
 func (c *HTTPClient) WeightRange(ctx context.Context, startDate, endDate string) ([]WeightMeasurement, error) {
-	var out []WeightMeasurement
-	err := c.get(ctx, "/weight-service/weight/range/"+startDate+"/"+endDate+"?includeAll=true", &out)
-	return out, err
+	var response struct {
+		DailyWeightSummaries []struct {
+			SummaryDate  string `json:"summaryDate"`
+			LatestWeight struct {
+				Weight float64 `json:"weight"`
+			} `json:"latestWeight"`
+		} `json:"dailyWeightSummaries"`
+	}
+	if err := c.get(ctx, "/weight-service/weight/range/"+startDate+"/"+endDate+"?includeAll=true", &response); err != nil {
+		return nil, err
+	}
+	measurements := make([]WeightMeasurement, 0, len(response.DailyWeightSummaries))
+	for _, summary := range response.DailyWeightSummaries {
+		if summary.LatestWeight.Weight > 0 {
+			measurements = append(measurements, WeightMeasurement{
+				Date:   summary.SummaryDate,
+				Weight: summary.LatestWeight.Weight,
+			})
+		}
+	}
+	return measurements, nil
 }
 
-// HeartRateZones returns the athlete's configured heart-rate zones.
+// HeartRateZones returns the athlete's default heart-rate zones. Garmin
+// returns one zone set per sport; DEFAULT applies globally.
 func (c *HTTPClient) HeartRateZones(ctx context.Context) (HeartRateZones, error) {
-	var out HeartRateZones
-	err := c.get(ctx, "/biometric-service/heartRateZones/v2", &out)
+	var all []HeartRateZones
+	if err := c.get(ctx, "/biometric-service/heartRateZones/v2", &all); err != nil {
+		return HeartRateZones{}, err
+	}
+	for _, zones := range all {
+		if zones.Sport == "DEFAULT" {
+			return zones, nil
+		}
+	}
+	if len(all) > 0 {
+		return all[0], nil
+	}
+	return HeartRateZones{}, nil
+}
+
+// VO2MaxDaily returns per-day VO2max estimates in the inclusive date range.
+func (c *HTTPClient) VO2MaxDaily(ctx context.Context, startDate, endDate string) ([]VO2MaxMeasurement, error) {
+	var out []VO2MaxMeasurement
+	err := c.get(ctx, "/metrics-service/metrics/maxmet/daily/"+startDate+"/"+endDate, &out)
 	return out, err
 }
 

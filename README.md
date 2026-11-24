@@ -86,7 +86,6 @@ server/            Go API (chi, sqlx, PostgreSQL)
     service/         business logic: coach, sync, garmin, goals, plans,
                      climbing, profile, chat
     testing/         testcontainers helpers + entity builders
-  vendor/            vendored Go modules (hermetic docker builds)
 web/               Vite React SPA (TS, Tailwind) + Node Express server
 packages/shared/   TS types + API client + SSE client (shared with RN app)
 scripts/           dev.sh, e2e.sh

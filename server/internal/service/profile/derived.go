@@ -7,10 +7,14 @@ import (
 
 	"github.com/radosny/vcoach/server/internal/entities"
 	"github.com/radosny/vcoach/server/internal/service/garmin"
+	syncsvc "github.com/radosny/vcoach/server/internal/service/sync"
 )
 
 // appSettingHRZones mirrors the key used by the sync service.
 const appSettingHRZones = "garmin_hr_zones"
+
+// appSettingVO2Max mirrors the key used by the sync service.
+const appSettingVO2Max = "garmin_vo2max"
 
 // Derived aggregates the Garmin-derived profile metrics computed on read.
 type Derived struct {
@@ -63,6 +67,13 @@ func (s *Service) GetDerived(ctx context.Context, athleteID uuid.UUID) (Derived,
 
 	if vo2max, err := s.repo.LatestVO2Max(ctx, athleteID); err == nil && vo2max != nil {
 		derived.VO2Max = vo2max
+	}
+
+	// Prefer the synced metrics-endpoint measurement (activity summaries
+	// usually omit the field) over the activities-derived value.
+	var vo2maxSnapshot syncsvc.VO2MaxSnapshot
+	if ok, err := s.repo.GetAppSetting(ctx, appSettingVO2Max, &vo2maxSnapshot); err == nil && ok && vo2maxSnapshot.Value > 0 {
+		derived.VO2Max = &vo2maxSnapshot.Value
 	}
 
 	if volumes, err := s.repo.WeeklyRunVolumes(ctx, athleteID, 4); err == nil {
